@@ -1,6 +1,6 @@
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-# import tensorflow as tf
+import tensorflow as tf
 import random
 from collections import Counter
 # from sklearn.metrics import roc_curve, auc, average_precision_score
@@ -128,3 +128,109 @@ test_matrix[test_users_idx[0], test_matrix[test_users_idx[0], :].nonzero()[0]]
 #array([ 1.,  1.,  1.,  1.,  1.])
 train_matrix[test_users_idx[0], test_matrix[test_users_idx[0], :].nonzero()[0]]
 #array([ 0.,  0.,  0.,  0.,  0.])
+
+
+# #------tensorflow----------
+tf.reset_default_graph() # Create a new graphs
+
+ # preference matrix
+pref = tf.placeholder(tf.float32, (n_users, n_games))
+# hours played matrix
+interactions = tf.placeholder(tf.float32, (n_users, n_games))
+users_idx = tf.placeholder(tf.int32, (None))
+
+# number of latent features to be extracted
+n_features = 30
+
+# X matrix represents the user latent preferences with a shape of user x latent features
+X = tf.Variable(tf.truncated_normal([n_users, n_features], mean = 0, stddev = 0.05))
+
+# Y matrix represents the game latent features with a shape of game x latent features
+Y = tf.Variable(tf.truncated_normal([n_games, n_features], mean = 0, stddev = 0.05))
+
+# Here's the initilization of the confidence parameter
+conf_alpha = tf.Variable(tf.random_uniform([1], 0, 1))
+
+
+# initialize a user bias vector
+user_bias = tf.Variable(tf.truncated_normal([n_users, 1], stddev = 0.2))
+
+# Concatenate the vector to the user matrix
+# Due to how matrix algebra works, we also need to add a column of ones to make sure
+# the resulting calculation will take into account the item biases.
+X_plus_bias = tf.concat([X,
+                         #tf.convert_to_tensor(user_bias, dtype = tf.float32),
+                         user_bias,
+                         tf.ones((n_users, 1), dtype = tf.float32)], axis = 1)
+
+
+# initialize the item bias vector
+item_bias = tf.Variable(tf.truncated_normal([n_games, 1], stddev = 0.2))
+
+# Cocatenate the vector to the game matrix
+# Also, adds a column one for the same reason stated above.
+Y_plus_bias = tf.concat([Y,
+                         tf.ones((n_games, 1), dtype = tf.float32),
+                         item_bias],
+                         axis = 1)
+# Here, we finally multiply the matrices together to estimate the predicted preferences
+pred_pref = tf.matmul(X_plus_bias, Y_plus_bias, transpose_b=True)
+
+# Construct the confidence matrix with the hours played and alpha paramter
+conf = 1 + conf_alpha * interactions
+
+cost = tf.reduce_sum(tf.multiply(conf, tf.square(tf.subtract(pref, pred_pref))))
+l2_sqr = tf.nn.l2_loss(X) + tf.nn.l2_loss(Y) + tf.nn.l2_loss(user_bias) + tf.nn.l2_loss(item_bias)
+lambda_c = 0.01
+loss = cost + lambda_c * l2_sqr
+lr = 0.05
+optimize = tf.train.AdagradOptimizer(learning_rate = lr).minimize(loss)
+
+# This is a function that help to calculate the top k precision
+def top_k_precision(pred, mat, k, user_idx):
+    precisions = []
+
+    for user in user_idx:
+        # found the top recommendation from the predictions
+        rec = np.argsort(-pred[user, :])
+        # arr = np.array(rec)
+        # print ("user: {0} rec: {1}".format(user, arr.tolist()))
+        top_k = rec[:k]
+        labels = mat[user, :].nonzero()[0]
+        # arr = np.array(labels)
+        # print ("labels: {0}".format(arr.tolist()))
+        # print "\n"
+        # calculate the precisions from actual labels
+        precision = len(set(top_k) & set(labels)) / float(k)
+        precisions.append(precision)
+    return np.mean(precisions)
+
+
+iterations = 1
+with tf.Session() as sess:
+    sess.run(tf.global_variables_initializer())
+
+    for i in range(iterations):
+        sess.run(optimize, feed_dict = {pref: train_matrix, interactions: user_game_interactions})
+
+        if i % 10 == 0:
+            mod_loss = sess.run(loss, feed_dict = {pref: train_matrix, interactions: user_game_interactions})
+            mod_pred = pred_pref.eval()
+            train_precision = top_k_precision(mod_pred, train_matrix, k, val_users_idx)
+            val_precision = top_k_precision(mod_pred, val_matrix, k, val_users_idx)
+            print('Iterations {0}...'.format(i),
+                  'Training Loss {:.2f}...'.format(mod_loss),
+                  'Train Precision {:.3f}...'.format(train_precision),
+                  'Validation Precision {:.3f}'.format(val_precision)
+                )
+
+    rec = pred_pref.eval()
+    test_precision = top_k_precision(rec, test_matrix, k, test_users_idx)
+    print type(test_precision)
+    print('\n')
+    print('test_precision {:.3f}'.format(test_precision))
+
+
+# #--------------Exemplos ---------------
+
+n_examples = 5
