@@ -1,0 +1,1 @@
+deactivate  # stop the virtualenv
