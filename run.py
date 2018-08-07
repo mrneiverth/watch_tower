@@ -234,3 +234,34 @@ with tf.Session() as sess:
 # #--------------Exemplos ---------------
 
 n_examples = 5
+
+while True:
+    ans = input("1. Para exemplos random\n2. Para entrar com um user_id\n3. Para printar nosso teste\n")
+
+    # ans=raw_input("What would you like to do? ")
+    if ans==1:
+      users = np.random.choice(test_users_idx, size = n_examples, replace = False)
+      rec_games = np.argsort(-rec)
+      for user in users:
+          print('Usuario: {0}\n'.format(idx2user[user]))
+          purchase_history = np.where(train_matrix[user, :] != 0)[0]
+          recommendations = rec_games[user, :]
+
+          new_recommendations = recommendations[~np.in1d(recommendations, purchase_history)][:k]
+
+          print('Nos recomendamos:')
+          print(', '.join([idx2game[game] for game in new_recommendations]))
+          print('\n')
+          print('Os jogos que o usuario {0} comprou sao:'.format(idx2user[user]))
+          print(', '.join([idx2game[game] for game in np.where(test_matrix[user, :] != 0)[0]]))
+          print('\n')
+          print('Precision de {0}'.format(len(set(new_recommendations) & set(np.where(test_matrix[user, :] != 0)[0])) / float(k)))
+          print('--------------------------------------')
+          print('\n')
+    elif ans==2:
+        ans_id = input("Digite o user_id: ")
+        print "TODO"
+    elif ans==3:
+        print("TODO")
+    elif ans != (1 or 2 or 3):
+        print("\n Opcao invalida")
