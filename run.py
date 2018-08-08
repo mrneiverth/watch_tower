@@ -5,7 +5,7 @@ import random
 from collections import Counter
 # from sklearn.metrics import roc_curve, auc, average_precision_score
 
-path = 'steam-200k.csv'
+path = 'steam_original.csv'
 #path = 'steam-200k.csv'
 df = pd.read_csv(path, header = None, names = ['UserID', 'Game', 'Action', 'Hours', 'Not Needed'])
 df.head()
@@ -72,11 +72,12 @@ hours = clean_df['Hours_Played'].values
 zero_matrix = np.zeros(shape = (n_users, n_games))
 user_game_pref = zero_matrix.copy()
 
-# fill the matrix will preferences (bought)
+# adicionado 1 aos jogos que o usuario tem preferencia (comprados)
 user_game_pref[user_idx, game_idx] = 1
 # arr = np.array(user_game_pref)
 # print arr.tolist()
 user_game_interactions = zero_matrix.copy()
+# matriz de horas jogadas, sendo o minimo 1 (pq ele comprou)
 user_game_interactions[user_idx, game_idx] = hours + 1
 # arr = np.array(user_game_interactions)
 # print arr.tolist()
@@ -206,7 +207,7 @@ def top_k_precision(pred, mat, k, user_idx):
     return np.mean(precisions)
 
 
-iterations = 1
+iterations = 70
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
 
@@ -218,10 +219,10 @@ with tf.Session() as sess:
             mod_pred = pred_pref.eval()
             train_precision = top_k_precision(mod_pred, train_matrix, k, val_users_idx)
             val_precision = top_k_precision(mod_pred, val_matrix, k, val_users_idx)
-            print('Iterations {0}...'.format(i),
-                  'Training Loss {:.2f}...'.format(mod_loss),
-                  'Train Precision {:.3f}...'.format(train_precision),
-                  'Validation Precision {:.3f}'.format(val_precision)
+            print('Ite: {0}'.format(i),
+                  'Training Loss {:.2f}'.format(mod_loss),
+                  'Train Precision: {:.3f}'.format(train_precision),
+                  'Validation Precision: {:.3f}'.format(val_precision)
                 )
 
     rec = pred_pref.eval()
@@ -245,11 +246,11 @@ while True:
       users = np.random.choice(test_users_idx, size = n_examples, replace = False)
 
       arr = np.array(users)
-      print ("enums: {0}".format(arr.tolist()))
+      print ("enums:\n {0}".format(arr.tolist()))
 
       rec_games = np.argsort(-rec)
       for user in users:
-          print("Enum: {0} idx2user(steam_id): {1}".format(user, idx2user[user]))
+          print("Enum: {0} steam_id: {1}".format(user, idx2user[user]))
           # print('Usuario: {0}'.format(idx2user[user]))
           purchase_history = np.where(train_matrix[user, :] != 0)[0]
           recommendations = rec_games[user, :]
@@ -263,41 +264,40 @@ while True:
           print(', '.join([idx2game[game] for game in np.where(test_matrix[user, :] != 0)[0]]))
           print('\n')
           print('Precision de {0}'.format(len(set(new_recommendations) & set(np.where(test_matrix[user, :] != 0)[0])) / float(k)))
-          print('--------------------------------------')
-          print('\n')
-    elif ans==2:
-        ans_id = input("Digite o enum: ")
-
-        # present = np.isin(ans_id,test_users_idx)
-        # if(present == False):
-        #     print "esse enum nao esta na lista de test_users_idx"
-        #     continue
-        #
-        # users = np.where(test_users_idx == ans_id)
-        users = np.random.choice(test_users_idx, size = 219, replace = False)
-
-
-        # print np.prod(test_users_idx.shape)
-
-        rec_games = np.argsort(-rec)
-
-        for user in users:
-            if(user == ans_id):
-                print("Enum: {0} idx2user(steam_id): {1}".format(user, idx2user[user]))
-                # print('Usuario: {0}'.format(idx2user[user]))
-                purchase_history = np.where(train_matrix[user, :] != 0)[0]
-                recommendations = rec_games[user, :]
-
-                new_recommendations = recommendations[~np.in1d(recommendations, purchase_history)][:k]
-
-                print('Recomendacao:')
-                print(', '.join([idx2game[game] for game in new_recommendations]))
-                print('\n')
-                print('Os jogos que o usuario {0} comprou sao:'.format(idx2user[user]))
-                print(', '.join([idx2game[game] for game in np.where(test_matrix[user, :] != 0)[0]]))
-                print('\n')
-                print('Precision de {0}'.format(len(set(new_recommendations) & set(np.where(test_matrix[user, :] != 0)[0])) / float(k)))
-                print('--------------------------------------')
-                print('\n')
-    elif ans != (1 or 2):
+          #print('--------------------------------------\n')
+    # elif ans==2:
+    #     ans_id = input("Digite o enum: ")
+    #
+    #     # present = np.isin(ans_id,test_users_idx)
+    #     # if(present == False):
+    #     #     print "esse enum nao esta na lista de test_users_idx"
+    #     #     continue
+    #     #
+    #     # users = np.where(test_users_idx == ans_id)
+    #     users = np.random.choice(test_users_idx, size = 219, replace = False)
+    #
+    #
+    #     # print np.prod(test_users_idx.shape)
+    #
+    #     rec_games = np.argsort(-rec)
+    #
+    #     for user in users:
+    #         if(user == ans_id):
+    #             print("Enum: {0} idx2user(steam_id): {1}".format(user, idx2user[user]))
+    #             # print('Usuario: {0}'.format(idx2user[user]))
+    #             purchase_history = np.where(train_matrix[user, :] != 0)[0]
+    #             recommendations = rec_games[user, :]
+    #
+    #             new_recommendations = recommendations[~np.in1d(recommendations, purchase_history)][:k]
+    #
+    #             print('Recomendacao:')
+    #             print(', '.join([idx2game[game] for game in new_recommendations]))
+    #             print('\n')
+    #             print('Os jogos que o usuario {0} comprou sao:'.format(idx2user[user]))
+    #             print(', '.join([idx2game[game] for game in np.where(test_matrix[user, :] != 0)[0]]))
+    #             print('\n')
+    #             #print('Precision de {0}'.format(len(set(new_recommendations) & set(np.where(test_matrix[user, :] != 0)[0])) / float(k)))
+    #             #print('--------------------------------------')
+    #             #print('\n')
+    elif ans != (1):
         print("\n Opcao invalida")
